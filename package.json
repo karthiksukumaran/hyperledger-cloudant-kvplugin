@@ -1,0 +1,17 @@
+{
+  "name": "hyperledger-cloudant-kvplugin",
+  "version": "1.0.0",
+  "description": "Cloudant Plugin instead of Default File Store plugin",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+
+  "dependencies": {
+    "bluebird": "^3.3.5",
+    "fabric-client": "^1.0.0",
+    "cloudant": ""
+  }
+}
