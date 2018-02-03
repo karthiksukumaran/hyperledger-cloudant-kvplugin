@@ -37,9 +37,9 @@ var KeyValueStore = class extends api.KeyValueStore {
 		
 		if (!options || !options.account) {
             options = { 
-                account: '8ef21d3b-fab2-4de4-8295-82de50a1be0f-bluemix',
-                password: 'e7fc9613bd7878311fd2c925fb85c1e3c65b41da1b5aef19d21251fd2db69346',
-                db: 'hyperldeger-console' 
+                account: '',
+                password: '',
+                db: '' 
             };
 			//throw new Error('Must provide the path to the directory to hold files for the store.');
 		}
@@ -58,7 +58,12 @@ var KeyValueStore = class extends api.KeyValueStore {
         } else {
             cloudant = Cloudant({account: options.account, password: options.password});
         }
-        
+
+        if(options.prefix) {
+            this.prefix = options.prefix;    
+        } else {
+            this.prefix = "";
+        }
         var db = cloudant.db.use(options.db);
 
 		var self = this;
@@ -75,11 +80,14 @@ var KeyValueStore = class extends api.KeyValueStore {
 	 * @ignore
 	 */
 	getValue(name) {
-        console.log("###############################################################");
-        console.log("################# getValue name : ",name,"########################");
-        console.log("###############################################################");
+        
 		var self = this;
         var db = self.db;
+        var prefix = self.prefix;
+        name= prefix+name;
+        console.log("###############################################################");
+        console.log("################# getValue name : ",name,"########################");
+        console.log("###############################################################");        
 		return new Promise(function(resolve, reject) {
 			db.get(name, function(err, data) {
                 if(!data){
@@ -88,6 +96,7 @@ var KeyValueStore = class extends api.KeyValueStore {
 
                 console.log("###############################################################");
                 console.log("################# getValue name : ",name,"########################");
+                console.log("################# getValue data : ",data,"########################");
                 console.log("################# getValue value : ",data.value,"########################");
                 console.log("###############################################################");
                 return resolve(data.value);
@@ -103,20 +112,28 @@ var KeyValueStore = class extends api.KeyValueStore {
 	 * @ignore
 	 */
 	setValue(name, value) {
-		console.log("###############################################################");
-        console.log("################# setValue name : ",name,"########################");
-        console.log("################# setValue value : ",value,"########################");
-        console.log("###############################################################");
-        var self = this;
+		var self = this;
         return new Promise(function(resolve, reject) {
             var db = self.db;
+            var prefix = self.prefix;
+            name = prefix+name;
+            console.log("###############################################################");
+            console.log("################# setValue name : ",name,"########################");
+            console.log("################# setValue value : ",value,"########################");
+            console.log("###############################################################");
             db.get(name, function(err, doc) {
                 if(err) {
                     
-                    db.insert({value : value}, name, function(err, body, header) {
+                    db.insert({value : value, prefixKey : prefix}, name, function(err, body, header) {
+
                         if (err) {
-                            console.log('[insert] ', err);
-                            return reject(err);
+                            if(err.statusCode == 409){
+                                console.log('[insert] Duplicate Issue 11111 ', name, value, err);
+                                return resolve(value);
+                            } else {
+                                console.log('[insert] ',name, value, err);
+                                return reject(err);
+                            }
                         } else {
                             console.log('Certificate inserted');
                             console.log(body);
@@ -125,22 +142,29 @@ var KeyValueStore = class extends api.KeyValueStore {
                     });
                     
                 } else {
-                    db.destroy(doc._id, doc._rev, function(err, data) {
-                        if(err) {
-                            return reject(err);
-                        } else {
-                            db.insert({value : value}, name, function(err, body, header) {
+                    if(doc.value != value){
+                        console.log('Old value and new value are not equal so inserting');
+                        doc.value = value;
+                        doc.prefixKey = prefix;
+                        db.insert(doc, name, function(err, body, header) {
                             if (err) {
-                                console.log('[insert] ', err);
-                                return reject(err);
+                                if(err && err.statusCode == 409){
+                                    console.log('[insert] Duplicate Issue 2222', name, value, err);
+                                    return resolve(value);
+                                } else {
+                                    console.log('[insert] ERRRRRR ',name, value, err);
+                                    return reject(err);
+                                }
                             } else {
                                 console.log('Certificate inserted');
                                 console.log(body);
                                 return resolve(value);
                             }
                         });
-                        }
-                    });
+                    } else {
+                        console.log('Old value and new value are equal so not inserting');
+                        return resolve(value);
+                    }
                 }
             });
 
